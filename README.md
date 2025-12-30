@@ -180,97 +180,10 @@ wandb>=0.15.0  # For experiment tracking
 pydicom>=2.4.0  # For DICOM support
 ```
 
----
 
-## 📖 Usage
 
-### **1. Inference on Single Image**
 
-```python
-from models import CMTUnetLarge
-from utils import load_image, visualize_results
 
-# Load model
-model = CMTUnetLarge.from_pretrained("checkpoints/cmt-unet-large.pth")
-model.eval()
-model.cuda()
-
-# Load and preprocess image
-image = load_image("data/test/frame_001.png", size=(1024, 1024))
-
-# Inference
-with torch.no_grad():
-    mask, class_logits = model(image)
-
-# Visualize results
-visualize_results(image, mask, class_logits, save_path="output/result.png")
-```
-
-### **2. Batch Inference on Video**
-
-```python
-from models import CMTUnetSmall
-from utils import VideoProcessor
-
-# Initialize model
-model = CMTUnetSmall.from_pretrained("checkpoints/cmt-unet-small.pth")
-
-# Process video
-processor = VideoProcessor(model)
-processor.process_video(
-    input_path="data/videos/surgery.mp4",
-    output_path="output/segmented_video.mp4",
-    fps=30
-)
-```
-
-### **3. Training from Scratch**
-
-```bash
-# Stage 1: Encoder Alignment (Feature Distillation)
-python train.py \
-    --config configs/encoder_alignment.yaml \
-    --teacher sam_vit_h \
-    --student cmt-unet-large \
-    --batch_size 16 \
-    --epochs 50 \
-    --lr 1e-4
-
-# Stage 2: Decoder Alignment (Mask Distillation)
-python train.py \
-    --config configs/decoder_alignment.yaml \
-    --checkpoint checkpoints/encoder_aligned.pth \
-    --batch_size 16 \
-    --epochs 50
-
-# Stage 3: Supervised Fine-tuning (End-to-End)
-python train.py \
-    --config configs/fine_tuning.yaml \
-    --checkpoint checkpoints/decoder_aligned.pth \
-    --dataset miccai+cholecseg8k \
-    --batch_size 8 \
-    --epochs 50 \
-    --augmentation strong
-```
-
-### **4. Evaluation**
-
-```bash
-# Test on MICCAI dataset
-python test.py \
-    --checkpoint checkpoints/cmt-unet-large.pth \
-    --dataset miccai \
-    --split test \
-    --save_masks \
-    --save_metrics results/metrics.csv
-
-# Benchmark inference speed
-python benchmark.py \
-    --model cmt-unet-small \
-    --num_runs 100 \
-    --device cuda \
-    --precision fp16
-```
 
 ---
 
@@ -301,21 +214,6 @@ python benchmark.py \
 
 **Download**: [CholecSeg8k Dataset](https://github.com/CAMMA-public/cholec80)
 
-### **Data Preparation**
-
-```bash
-# Download and prepare MICCAI dataset
-python scripts/prepare_miccai.py \
-    --download_dir data/raw \
-    --output_dir data/processed/miccai \
-    --resize 1024
-
-# Download and prepare CholecSeg8k
-python scripts/prepare_cholecseg.py \
-    --download_dir data/raw \
-    --output_dir data/processed/cholecseg8k \
-    --split 0.8
-```
 
 ---
 
@@ -356,33 +254,6 @@ Loss_total = Loss_seg + Loss_cls
 
 ## 📈 Experiment Tracking
 
-We use **Weights & Biases** for experiment tracking:
-
-```python
-import wandb
-
-wandb.init(
-    project="surgical-tool-segmentation",
-    config={
-        "model": "cmt-unet-large",
-        "batch_size": 16,
-        "learning_rate": 1e-4,
-        "optimizer": "AdamW",
-        "epochs": 50
-    }
-)
-
-# Log metrics
-wandb.log({
-    "train/loss": train_loss,
-    "val/iou": val_iou,
-    "val/dice": val_dice
-})
-```
-
-View our experiments: [W&B Dashboard](https://wandb.ai/mthezn/surgical-tool-segmentation)
-
----
 
 ## 🎨 Qualitative Results
 
@@ -395,18 +266,7 @@ Our model handles:
 - ✅ **Extreme zoom** (close-up views)
 - ✅ **Blood and tissue occlusion**
 
-Example outputs:
 
-```
-data/
-├── examples/
-│   ├── motion_blur.png       # CMT-Unet handles motion blur
-│   ├── overlap.png           # Separates overlapping instruments
-│   ├── illumination.png      # Robust to lighting changes
-│   └── zoom.png              # Works at various zoom levels
-```
-
----
 
 ## 🏥 Clinical Applications
 
@@ -438,47 +298,7 @@ data/
 | CMT-Unet-Small | 78M | 34G | 15.48 | 0.8703 | [weights](https://drive.google.com/...) |
 | CMT-Unet-Large + Cls | 325M | 43G | 50.12 | 0.8919 | [weights](https://drive.google.com/...) |
 
----
 
-## 🛠️ Deployment
-
-### **ONNX Export**
-
-```python
-import torch
-from models import CMTUnetLarge
-
-model = CMTUnetLarge.from_pretrained("checkpoints/cmt-unet-large.pth")
-model.eval()
-
-dummy_input = torch.randn(1, 3, 1024, 1024)
-
-torch.onnx.export(
-    model,
-    dummy_input,
-    "models/cmt-unet-large.onnx",
-    export_params=True,
-    opset_version=14,
-    input_names=['image'],
-    output_names=['mask', 'class_logits']
-)
-```
-
-### **TensorRT Optimization**
-
-```bash
-# Convert ONNX to TensorRT
-trtexec \
-    --onnx=models/cmt-unet-large.onnx \
-    --saveEngine=models/cmt-unet-large.trt \
-    --fp16 \
-    --workspace=4096
-
-# Benchmark TensorRT engine
-trtexec --loadEngine=models/cmt-unet-large.trt --iterations=100
-```
-
----
 
 ## 🔍 Ablation Studies
 
