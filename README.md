@@ -103,7 +103,8 @@ Input (1024×1024) → CMT Encoder → CNN Decoder → Segmentation Mask
 - Fully connected layers + SE blocks
 - Dropout for regularization
 
----
+--- 
+Link to Knowledge Distillation Setup: https://github.com/mthezn/distillation
 
 ## 📊 Results
 
